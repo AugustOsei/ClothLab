@@ -444,6 +444,9 @@
     const indices = [];
     let viewWidth = 1, viewHeight = 1, last = performance.now();
     let grabbed = -1, grabDepth = .5, pointer = { x: 0, y: 0 };
+    let grabAnchor = [0, 0, 0];
+    const grabMask = new Uint8Array(POINTS);
+    const grabGroup = [];
     let windOn = true, pulseEnergy = 0, frames = 0, fpsAcc = 0;
 
     const vs = `
@@ -503,6 +506,7 @@
     }
     function buildMesh() {
       constraints.length = 0; indices.length = 0;
+      grabbed = -1; grabGroup.length = 0; grabMask.fill(0);
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
           const i = id(x, y);
@@ -627,6 +631,46 @@
       }
       return best;
     }
+    function makeGrabGroup(center, x, y) {
+      grabGroup.length = 0;
+      grabMask.fill(0);
+      const radius = viewWidth < 700 ? 150 : 120;
+      const ck = center * 3;
+      grabAnchor = [pos[ck], pos[ck + 1], pos[ck + 2]];
+      for (let i = 0; i < POINTS; i++) {
+        if (pin[i]) continue;
+        const s = screen(i);
+        const d = Math.hypot(s.x - x, s.y - y);
+        if (d <= radius) {
+          const k = i * 3;
+          const falloff = 1 - d / radius;
+          grabMask[i] = 1;
+          grabGroup.push({
+            i,
+            w: .18 + falloff * falloff * .82,
+            ox: pos[k] - grabAnchor[0],
+            oy: pos[k + 1] - grabAnchor[1],
+            oz: pos[k + 2] - grabAnchor[2]
+          });
+        }
+      }
+    }
+    function applyGrab(strength) {
+      if (grabbed < 0) return;
+      const target = pointerWorld(pointer.x, pointer.y, grabDepth);
+      for (const g of grabGroup) {
+        const k = g.i * 3;
+        const tx = target[0] + g.ox;
+        const ty = target[1] + g.oy;
+        const tz = target[2] + g.oz;
+        prev[k] = pos[k];
+        prev[k + 1] = pos[k + 1];
+        prev[k + 2] = pos[k + 2];
+        pos[k] += (tx - pos[k]) * g.w * strength;
+        pos[k + 1] += (ty - pos[k + 1]) * g.w * strength;
+        pos[k + 2] += (tz - pos[k + 2]) * g.w * strength;
+      }
+    }
     function satisfy(stiff) {
       for (let c = 0; c < constraints.length; c += 4) {
         const ai = constraints[c], bi = constraints[c+1], a = ai*3, b = bi*3, rest = constraints[c+2], st = constraints[c+3] * stiff;
@@ -650,7 +694,7 @@
           prev[k]=pos[k]; prev[k+1]=pos[k+1]; prev[k+2]=pos[k+2];
           continue;
         }
-        if (i === grabbed) continue;
+        if (grabMask[i]) continue;
         const vx = (pos[k]-prev[k]) * DAMP, vy = (pos[k+1]-prev[k+1]) * DAMP, vz = (pos[k+2]-prev[k+2]) * DAMP;
         prev[k]=pos[k]; prev[k+1]=pos[k+1]; prev[k+2]=pos[k+2];
         const wave = Math.sin(time*.0032 + x*.24 + y*.3), cross = Math.cos(time*.002 + x*.15 - y*.34);
@@ -659,12 +703,9 @@
         pos[k+1] += vy - 1.8 * dt * dt + Math.sin(time*.0015 + x*.18) * wind * .002;
         pos[k+2] += vz + (wave*.46 + cross*.18) * wind * (turbulence + .35) * dt + pulse * dt;
       }
+      applyGrab(.95);
       for (let i = 0; i < ITER; i++) satisfy(stiff);
-      if (grabbed >= 0) {
-        const k = grabbed * 3, w = pointerWorld(pointer.x, pointer.y, grabDepth);
-        prev[k]=pos[k]; prev[k+1]=pos[k+1]; prev[k+2]=pos[k+2];
-        pos[k] += (w[0]-pos[k])*.82; pos[k+1] += (w[1]-pos[k+1])*.82; pos[k+2] += (w[2]-pos[k+2])*.82;
-      }
+      applyGrab(.72);
       pulseEnergy *= .9;
     }
     function normals() {
@@ -698,10 +739,19 @@
       viewWidth = r.width; viewHeight = r.height; canvas.width = Math.round(r.width*dpr); canvas.height = Math.round(r.height*dpr); gl.viewport(0, 0, canvas.width, canvas.height);
     }
     function local(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-    canvas.addEventListener("pointerdown", e => { e.preventDefault(); pointer = local(e); grabbed = nearest(pointer.x, pointer.y); if (grabbed >= 0) { grabDepth = depthFor(grabbed, pointer.x, pointer.y); canvas.setPointerCapture(e.pointerId); } });
+    canvas.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      pointer = local(e);
+      grabbed = nearest(pointer.x, pointer.y);
+      if (grabbed >= 0) {
+        grabDepth = depthFor(grabbed, pointer.x, pointer.y);
+        makeGrabGroup(grabbed, pointer.x, pointer.y);
+        canvas.setPointerCapture(e.pointerId);
+      }
+    });
     canvas.addEventListener("pointermove", e => { pointer = local(e); });
-    canvas.addEventListener("pointerup", () => { grabbed = -1; });
-    canvas.addEventListener("pointercancel", () => { grabbed = -1; });
+    canvas.addEventListener("pointerup", () => { grabbed = -1; grabGroup.length = 0; grabMask.fill(0); });
+    canvas.addEventListener("pointercancel", () => { grabbed = -1; grabGroup.length = 0; grabMask.fill(0); });
     function sync(input, output) { const f = () => output.textContent = input.value; input.addEventListener("input", f); f(); }
     sync(ui.wind, ui.windValue); sync(ui.turbulence, ui.turbulenceValue); sync(ui.stiffness, ui.stiffnessValue); sync(ui.sheen, ui.sheenValue);
     function sendPulse(){ pulseEnergy = 20; }
