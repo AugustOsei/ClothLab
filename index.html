@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>August Wheel Cloth Lab</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; overflow: hidden; }
+    body {
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 78% 82%, rgba(255, 135, 56, .16), transparent 30rem),
+        radial-gradient(circle at 16% 18%, rgba(73, 240, 212, .14), transparent 28rem),
+        linear-gradient(135deg, #06110f, #050606 58%, #120d08);
+      color: #f5f7f4;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .shell {
+      width: min(1120px, calc(100vw - 28px));
+      height: min(760px, calc(100vh - 28px));
+      overflow: hidden;
+      border: 1px solid rgba(210, 238, 232, .24);
+      border-radius: 24px;
+      background: rgba(8, 10, 11, .86);
+      box-shadow: 0 34px 110px rgba(0, 0, 0, .55);
+    }
+    .topbar {
+      display: grid;
+      grid-template-columns: 300px 1fr auto;
+      align-items: end;
+      height: 84px;
+      padding: 16px 28px;
+      border-bottom: 1px solid rgba(210, 238, 232, .13);
+      background: linear-gradient(180deg, rgba(18, 22, 23, .96), rgba(14, 16, 17, .76));
+    }
+    .brand span {
+      display: block;
+      color: #5bf0d1;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .brand strong {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: clamp(28px, 3.5vw, 38px);
+      font-weight: 950;
+      line-height: .95;
+      white-space: nowrap;
+    }
+    .brand small {
+      margin-left: 7px;
+      color: #a8afad;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: clamp(20px, 4.5vw, 44px);
+      padding-bottom: 4px;
+    }
+    nav a {
+      position: relative;
+      color: #b7bcba;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .13em;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    nav a.active { color: #fff; }
+    nav a.active::after {
+      position: absolute;
+      right: 0;
+      bottom: -12px;
+      left: 0;
+      height: 3px;
+      content: "";
+      border-radius: 4px;
+      background: linear-gradient(90deg, #5bf0d1, #ffd651);
+    }
+    .stats { display: flex; gap: 8px; align-self: center; }
+    .stats span {
+      min-width: 68px;
+      padding: 10px 12px;
+      border: 1px solid rgba(210, 238, 232, .16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .045);
+      color: #d9dfdc;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      text-align: center;
+    }
+    .stage {
+      position: relative;
+      height: calc(100% - 84px);
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(32, 87, 78, .34), transparent 35%),
+        radial-gradient(circle at 67% 55%, rgba(255, 187, 75, .1), transparent 34rem),
+        #080b0b;
+    }
+    .stage::before {
+      position: absolute;
+      inset: 0;
+      content: "";
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.026) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(to bottom, #000, transparent 94%);
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      touch-action: none;
+    }
+    canvas:active { cursor: grabbing; }
+    .wind-panel, .sim-panel, .hud-note, .grab-ring {
+      position: absolute;
+      z-index: 3;
+      border: 1px solid rgba(210, 238, 232, .18);
+      background: rgba(13, 17, 18, .82);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, .36);
+      backdrop-filter: blur(15px);
+    }
+    .wind-panel {
+      top: 112px;
+      left: 28px;
+      display: grid;
+      justify-items: center;
+      width: 92px;
+      height: 350px;
+      padding: 18px 12px;
+      border-radius: 999px;
+    }
+    .fan {
+      position: relative;
+      width: 54px;
+      height: 54px;
+      border: 1px solid rgba(91, 240, 209, .28);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(91,240,209,.24), rgba(18,25,25,.92));
+      animation: spin 1.1s linear infinite;
+    }
+    .fan::before, .fan::after, .blade { position: absolute; content: ""; background: #f5fffb; }
+    .fan::before { left: 23px; top: 10px; width: 8px; height: 34px; border-radius: 10px; }
+    .fan::after { left: 10px; top: 23px; width: 34px; height: 8px; border-radius: 10px; }
+    .blade { left: 24px; top: 24px; width: 7px; height: 7px; border-radius: 50%; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .wind-panel strong {
+      margin-top: 8px;
+      color: #dfe5e2;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    .wind-panel input {
+      width: 162px;
+      margin-top: 54px;
+      transform: rotate(-90deg);
+      accent-color: #5bf0d1;
+    }
+    .wind-panel output {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 26px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .sim-panel {
+      right: 30px;
+      top: 170px;
+      width: min(260px, calc(100vw - 72px));
+      padding: 18px;
+      border-radius: 8px;
+    }
+    .sim-panel h2 {
+      margin: 0 0 16px;
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    label { display: block; margin-top: 14px; }
+    label span {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: #d8dedb;
+      font-size: 12px;
+      font-weight: 850;
+    }
+    input[type="range"] { width: 100%; accent-color: #5bf0d1; }
+    .hud-note {
+      right: 170px;
+      bottom: 48px;
+      left: 162px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+      min-height: 66px;
+      padding: 10px 12px;
+      border-radius: 999px;
+    }
+    .round-buttons { display: flex; gap: 8px; }
+    button {
+      border: 1px solid rgba(210, 238, 232, .18);
+      color: #f5f7f4;
+      cursor: pointer;
+      font: inherit;
+    }
+    .round-buttons button {
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.07);
+      font-size: 20px;
+    }
+    .hud-note strong {
+      display: block;
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: .05em;
+    }
+    .hud-note p {
+      margin: 3px 0 0;
+      color: #bac1bd;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pulse {
+      min-width: 108px;
+      padding: 14px 22px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(100deg, #5bf0d1, #ffd651);
+      color: #06100e;
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .grab-ring {
+      display: none;
+      width: 58px;
+      height: 58px;
+      margin: -29px 0 0 -29px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.08);
+      pointer-events: none;
+    }
+    .info-box {
+      position: absolute;
+      z-index: 5;
+      right: 170px;
+      bottom: 130px;
+      left: 162px;
+      display: none;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      padding: 18px 20px;
+      border: 1px solid rgba(210, 238, 232, .2);
+      border-radius: 10px;
+      background: rgba(12, 16, 17, .9);
+      box-shadow: 0 22px 70px rgba(0,0,0,.42);
+      backdrop-filter: blur(16px);
+    }
+    .info-box.open { display: grid; }
+    .info-box h2 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .info-box p {
+      margin: 0;
+      max-width: 680px;
+      color: #c3cbc7;
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+    .info-box button {
+      align-self: start;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.07);
+      font-size: 18px;
+      line-height: 1;
+    }
+    .site-footer {
+      position: absolute;
+      right: 20px;
+      bottom: 14px;
+      left: 20px;
+      z-index: 3;
+      color: rgba(220, 230, 226, .62);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      text-align: center;
+      pointer-events: none;
+    }
+    .site-footer a {
+      color: #5bf0d1;
+      text-decoration: none;
+      pointer-events: auto;
+    }
+    @media (max-width: 860px) {
+      .shell { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
+      .topbar { grid-template-columns: 1fr auto; height: 124px; padding: 14px 16px 12px; }
+      nav {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+        gap: 18px;
+        margin-top: 14px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      nav a { flex: 0 0 auto; font-size: 10px; }
+      nav a.active::after { bottom: -7px; }
+      .brand strong { font-size: 28px; }
+      .brand small { display: block; margin: 4px 0 0; }
+      .stage { height: calc(100% - 124px); }
+      .stats span { min-width: 58px; padding: 8px; font-size: 10px; }
+      .wind-panel { left: 14px; top: auto; bottom: 116px; width: 70px; height: 250px; }
+      .wind-panel input { width: 112px; margin-top: 28px; }
+      .sim-panel { right: 14px; top: auto; bottom: 118px; width: 210px; }
+      .hud-note { right: 12px; bottom: 38px; left: 12px; grid-template-columns: auto 1fr; border-radius: 18px; }
+      .pulse { grid-column: 1 / -1; width: 100%; }
+      .info-box { right: 12px; bottom: 210px; left: 12px; }
+      .site-footer { bottom: 10px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span>Interactive Cloth Lab</span>
+        <strong>AUGUST WHEEL</strong>
+        <small>By Augustine Osei</small>
+      </div>
+      <nav aria-label="Sections">
+        <a class="active" href="#" data-info="showcase">Showcase</a>
+        <a href="#" data-info="physics">Physics</a>
+        <a href="#" data-info="texture">Texture</a>
+        <a href="#" data-info="controls">Controls</a>
+      </nav>
+      <div class="stats"><span id="fps">60 FPS</span><span id="pts">0 PTS</span></div>
+    </header>
+    <section class="stage" aria-label="Interactive flag physics demo">
+      <canvas id="gl"></canvas>
+      <div id="grabRing" class="grab-ring"></div>
+      <aside class="wind-panel" aria-label="Wind strength">
+        <button id="fan" class="fan" type="button" aria-label="Toggle wind"><span class="blade"></span></button>
+        <strong>Wind</strong>
+        <input id="wind" type="range" min="0" max="100" value="58" aria-label="Wind strength">
+        <output id="windValue">58</output>
+      </aside>
+      <aside class="sim-panel" aria-label="Simulation controls">
+        <h2>Simulation</h2>
+        <label><span>Turbulence <b id="turbulenceValue">48</b></span><input id="turbulence" type="range" min="0" max="100" value="48"></label>
+        <label><span>Stiffness <b id="stiffnessValue">86</b></span><input id="stiffness" type="range" min="45" max="100" value="86"></label>
+        <label><span>Sheen <b id="sheenValue">62</b></span><input id="sheen" type="range" min="0" max="100" value="62"></label>
+      </aside>
+      <div class="hud-note">
+        <div class="round-buttons"><button id="reset" type="button" aria-label="Reset">↻</button><button id="gust" type="button" aria-label="Gust">≋</button></div>
+        <div><strong>AUGUST WHEEL KINETIC BANNER</strong><p>Grab any fold, tune the wind field, or send a pressure pulse through the cloth.</p></div>
+        <button id="pulse" class="pulse" type="button">Pulse</button>
+      </div>
+      <aside id="infoBox" class="info-box" aria-live="polite">
+        <div><h2 id="infoTitle">Showcase</h2><p id="infoText">A live cloth banner for August Wheel: typography, wind, and folds are rendered as one interactive WebGL surface.</p></div>
+        <button id="infoClose" type="button" aria-label="Close information">×</button>
+      </aside>
+      <footer class="site-footer">Interactive Cloth Lab. Follow my blog for AI and automation content on <a href="https://augustwheel.com">augustwheel.com</a>.</footer>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("gl");
+    const ring = document.getElementById("grabRing");
+    const gl = canvas.getContext("webgl", { antialias: true, alpha: true });
+    if (!gl) throw new Error("WebGL unavailable");
+
+    const ui = {
+      wind: document.getElementById("wind"),
+      windValue: document.getElementById("windValue"),
+      turbulence: document.getElementById("turbulence"),
+      turbulenceValue: document.getElementById("turbulenceValue"),
+      stiffness: document.getElementById("stiffness"),
+      stiffnessValue: document.getElementById("stiffnessValue"),
+      sheen: document.getElementById("sheen"),
+      sheenValue: document.getElementById("sheenValue"),
+      fps: document.getElementById("fps"),
+      pts: document.getElementById("pts"),
+      fan: document.getElementById("fan"),
+      pulse: document.getElementById("pulse"),
+      gust: document.getElementById("gust"),
+      reset: document.getElementById("reset")
+    };
+    const info = {
+      box: document.getElementById("infoBox"),
+      title: document.getElementById("infoTitle"),
+      text: document.getElementById("infoText"),
+      close: document.getElementById("infoClose")
+    };
+    const infoCopy = {
+      showcase: ["Showcase", "A live cloth banner for August Wheel: typography, wind, and folds are rendered as one interactive WebGL surface."],
+      physics: ["Physics", "The flag is a grid of particles connected by constraints. Its left edge is pinned like a pole, while wind, pulse pressure, and pointer dragging pull the rest of the mesh into folds."],
+      texture: ["Texture", "The lettering, grid, sheen, and fabric grain are generated on an offscreen canvas and mapped onto the moving mesh so the words bend with the cloth."],
+      controls: ["Controls", "Wind changes the lateral force, turbulence adds irregular motion, stiffness tightens the spring constraints, sheen controls the moving highlight, and Pulse sends a pressure wave through the banner."]
+    };
+
+    const COLS = 54, ROWS = 30, W = 6.4, H = 3.35, POINTS = COLS * ROWS;
+    const DX = W / (COLS - 1), DY = H / (ROWS - 1);
+    const ITER = 6, DAMP = .988;
+    const pos = new Float32Array(POINTS * 3);
+    const prev = new Float32Array(POINTS * 3);
+    const normal = new Float32Array(POINTS * 3);
+    const uv = new Float32Array(POINTS * 2);
+    const pin = new Uint8Array(POINTS);
+    const pinPos = new Float32Array(POINTS * 3);
+    const constraints = [];
+    const indices = [];
+    let viewWidth = 1, viewHeight = 1, last = performance.now();
+    let grabbed = -1, grabDepth = .5, pointer = { x: 0, y: 0 };
+    let windOn = true, pulseEnergy = 0, frames = 0, fpsAcc = 0;
+
+    const vs = `
+      attribute vec3 aPosition; attribute vec2 aUv; attribute vec3 aNormal;
+      uniform mat4 uProjection; uniform mat4 uView;
+      varying vec2 vUv; varying vec3 vNormal; varying vec3 vWorld;
+      void main(){ vUv=aUv; vNormal=aNormal; vWorld=aPosition; gl_Position=uProjection*uView*vec4(aPosition,1.0); }
+    `;
+    const fs = `
+      precision mediump float;
+      varying vec2 vUv; varying vec3 vNormal; varying vec3 vWorld;
+      uniform sampler2D uTexture; uniform vec3 uLight; uniform float uSheen;
+      void main(){
+        vec4 cloth=texture2D(uTexture,vUv);
+        vec3 n=normalize(vNormal);
+        float front=max(dot(n,normalize(uLight)),0.0);
+        float back=max(dot(-n,normalize(uLight)),0.0)*0.42;
+        float fold=pow(1.0-abs(n.z),2.0)*0.22;
+        float stripe=pow(max(0.0, sin((vWorld.x+vWorld.y)*4.8+vWorld.z*2.4)), 18.0)*uSheen*.32;
+        vec3 color=cloth.rgb*(.38+front*.7+back-fold)+stripe;
+        gl_FragColor=vec4(color, cloth.a*.98);
+      }
+    `;
+
+    function makeShader(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, makeShader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, makeShader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    gl.useProgram(prog);
+    const loc = {
+      position: gl.getAttribLocation(prog, "aPosition"),
+      uv: gl.getAttribLocation(prog, "aUv"),
+      normal: gl.getAttribLocation(prog, "aNormal"),
+      projection: gl.getUniformLocation(prog, "uProjection"),
+      view: gl.getUniformLocation(prog, "uView"),
+      texture: gl.getUniformLocation(prog, "uTexture"),
+      light: gl.getUniformLocation(prog, "uLight"),
+      sheen: gl.getUniformLocation(prog, "uSheen")
+    };
+    const buffers = { pos: gl.createBuffer(), uv: gl.createBuffer(), normal: gl.createBuffer(), index: gl.createBuffer() };
+
+    function id(x, y) { return y * COLS + x; }
+    function add(a, b, rest, stiff) { constraints.push(a, b, rest, stiff); }
+    function setPoint(i, x, y, z) {
+      const k = i * 3;
+      pos[k] = prev[k] = pinPos[k] = x;
+      pos[k + 1] = prev[k + 1] = pinPos[k + 1] = y;
+      pos[k + 2] = prev[k + 2] = pinPos[k + 2] = z;
+    }
+    function buildMesh() {
+      constraints.length = 0; indices.length = 0;
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const i = id(x, y);
+          const px = (x / (COLS - 1) - .5) * W;
+          const py = (0.5 - y / (ROWS - 1)) * H + .78;
+          const pz = Math.sin(x * .28 + y * .16) * .08;
+          setPoint(i, px, py, pz);
+          uv[i * 2] = x / (COLS - 1); uv[i * 2 + 1] = y / (ROWS - 1);
+          pin[i] = x === 0 ? 1 : 0;
+        }
+      }
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (x < COLS - 1) add(id(x, y), id(x + 1, y), DX, 1);
+          if (y < ROWS - 1) add(id(x, y), id(x, y + 1), DY, 1);
+          if (x < COLS - 2) add(id(x, y), id(x + 2, y), DX * 2, .38);
+          if (y < ROWS - 2) add(id(x, y), id(x, y + 2), DY * 2, .38);
+          if (x < COLS - 1 && y < ROWS - 1) {
+            add(id(x, y), id(x + 1, y + 1), Math.hypot(DX, DY), .28);
+            add(id(x + 1, y), id(x, y + 1), Math.hypot(DX, DY), .28);
+          }
+        }
+      }
+      for (let y = 0; y < ROWS - 1; y++) for (let x = 0; x < COLS - 1; x++) {
+        const a = id(x, y), b = id(x + 1, y), c = id(x, y + 1), d = id(x + 1, y + 1);
+        indices.push(a, c, b, b, c, d);
+      }
+      ui.pts.textContent = `${POINTS} PTS`;
+    }
+
+    function makeTexture() {
+      const t = document.createElement("canvas");
+      t.width = 2048; t.height = 1024;
+      const c = t.getContext("2d");
+      const g = c.createLinearGradient(0, 0, t.width, t.height);
+      g.addColorStop(0, "#123530"); g.addColorStop(.38, "#101918"); g.addColorStop(1, "#24180f");
+      c.fillStyle = g; c.fillRect(0, 0, t.width, t.height);
+      c.globalAlpha = .28; c.strokeStyle = "#5bf0d1"; c.lineWidth = 3;
+      for (let x = -900; x < t.width; x += 74) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 900, t.height); c.stroke(); }
+      c.globalAlpha = .18; c.strokeStyle = "#fff"; c.lineWidth = 2;
+      for (let y = 64; y < t.height; y += 58) { c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(520, y + 46, 1120, y - 42, t.width, y + 22); c.stroke(); }
+      c.globalAlpha = 1;
+      c.save(); c.translate(355, 460); c.rotate(-.07);
+      c.fillStyle = "rgba(0,0,0,.34)"; c.font = "950 136px Arial, sans-serif"; c.fillText("AUGUST WHEEL", 12, 16);
+      c.fillStyle = "#f7f8f2"; c.fillText("AUGUST WHEEL", 0, 0);
+      c.font = "900 44px Arial, sans-serif"; c.fillStyle = "#5bf0d1"; c.fillText("By Augustine Osei", 18, 68);
+      c.font = "800 30px Arial, sans-serif"; c.fillStyle = "rgba(245,247,244,.84)"; c.fillText("made with GPT 5.5", 18, 112);
+      c.restore();
+      c.globalAlpha = .32; c.fillStyle = "#fff";
+      for (let i = 0; i < 1300; i++) c.fillRect(Math.random() * t.width, Math.random() * t.height, Math.random() * 2 + .5, .8);
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      return tex;
+    }
+
+    const texture = makeTexture();
+    buildMesh();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+    gl.bufferData(gl.ARRAY_BUFFER, uv, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(loc.uv);
+    gl.vertexAttribPointer(loc.uv, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+    function perspective(fov, aspect, near, far) {
+      const f = 1 / Math.tan(fov / 2), nf = 1 / (near - far);
+      return [f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0];
+    }
+    function lookAt(e, c, u) {
+      let zx=e[0]-c[0], zy=e[1]-c[1], zz=e[2]-c[2], l=Math.hypot(zx,zy,zz); zx/=l; zy/=l; zz/=l;
+      let xx=u[1]*zz-u[2]*zy, xy=u[2]*zx-u[0]*zz, xz=u[0]*zy-u[1]*zx; l=Math.hypot(xx,xy,xz); xx/=l; xy/=l; xz/=l;
+      const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+      return [xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0, -(xx*e[0]+xy*e[1]+xz*e[2]), -(yx*e[0]+yy*e[1]+yz*e[2]), -(zx*e[0]+zy*e[1]+zz*e[2]), 1];
+    }
+    function mul(a,b){ const o=[]; for(let i=0;i<4;i++)for(let j=0;j<4;j++)o[i+j*4]=a[0+j*4]*b[i]+a[1+j*4]*b[i+4]+a[2+j*4]*b[i+8]+a[3+j*4]*b[i+12]; return o; }
+    function mv(m,v){ return [m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12]*v[3], m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13]*v[3], m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14]*v[3], m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]*v[3]]; }
+    function invert(a){
+      const o=[], b00=a[0]*a[5]-a[1]*a[4], b01=a[0]*a[6]-a[2]*a[4], b02=a[0]*a[7]-a[3]*a[4], b03=a[1]*a[6]-a[2]*a[5], b04=a[1]*a[7]-a[3]*a[5], b05=a[2]*a[7]-a[3]*a[6], b06=a[8]*a[13]-a[9]*a[12], b07=a[8]*a[14]-a[10]*a[12], b08=a[8]*a[15]-a[11]*a[12], b09=a[9]*a[14]-a[10]*a[13], b10=a[9]*a[15]-a[11]*a[13], b11=a[10]*a[15]-a[11]*a[14];
+      let d=1/(b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06);
+      o[0]=(a[5]*b11-a[6]*b10+a[7]*b09)*d; o[1]=(a[2]*b10-a[1]*b11-a[3]*b09)*d; o[2]=(a[13]*b05-a[14]*b04+a[15]*b03)*d; o[3]=(a[10]*b04-a[9]*b05-a[11]*b03)*d;
+      o[4]=(a[6]*b08-a[4]*b11-a[7]*b07)*d; o[5]=(a[0]*b11-a[2]*b08+a[3]*b07)*d; o[6]=(a[14]*b02-a[12]*b05-a[15]*b01)*d; o[7]=(a[8]*b05-a[10]*b02+a[11]*b01)*d;
+      o[8]=(a[4]*b10-a[5]*b08+a[7]*b06)*d; o[9]=(a[1]*b08-a[0]*b10-a[3]*b06)*d; o[10]=(a[12]*b04-a[13]*b02+a[15]*b00)*d; o[11]=(a[9]*b02-a[8]*b04-a[11]*b00)*d;
+      o[12]=(a[5]*b07-a[4]*b09-a[6]*b06)*d; o[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d; o[14]=(a[13]*b01-a[12]*b03-a[14]*b00)*d; o[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d;
+      return o;
+    }
+    function matrices() {
+      const proj = perspective(Math.PI / 4.9, canvas.width / canvas.height, .1, 60);
+      const eye = viewWidth < 700 ? [.05, .08, 13.2] : [.15, .08, 8.7];
+      const target = viewWidth < 700 ? [.22, -.08, 0] : [.7, -.08, 0];
+      const view = lookAt(eye, target, [0, 1, 0]);
+      return { proj, view, inv: invert(mul(proj, view)) };
+    }
+    function screen(i) {
+      const { proj, view } = matrices(), k = i * 3, clip = mv(mul(proj, view), [pos[k], pos[k+1], pos[k+2], 1]);
+      return { x: (clip[0]/clip[3]*.5+.5)*viewWidth, y: (-clip[1]/clip[3]*.5+.5)*viewHeight };
+    }
+    function pointerWorld(x, y, depth) {
+      const inv = matrices().inv, nx = x / viewWidth * 2 - 1, ny = 1 - y / viewHeight * 2;
+      const a = mv(inv, [nx, ny, -1, 1]), b = mv(inv, [nx, ny, 1, 1]);
+      for (let i = 0; i < 3; i++) { a[i] /= a[3]; b[i] /= b[3]; }
+      return [a[0]+(b[0]-a[0])*depth, a[1]+(b[1]-a[1])*depth, a[2]+(b[2]-a[2])*depth];
+    }
+    function depthFor(i, x, y) {
+      const inv = matrices().inv, nx = x / viewWidth * 2 - 1, ny = 1 - y / viewHeight * 2, k = i * 3;
+      const a = mv(inv, [nx, ny, -1, 1]), b = mv(inv, [nx, ny, 1, 1]);
+      for (let j = 0; j < 3; j++) { a[j] /= a[3]; b[j] /= b[3]; }
+      const r = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], q = [pos[k]-a[0], pos[k+1]-a[1], pos[k+2]-a[2]];
+      return Math.max(.02, Math.min(.98, (q[0]*r[0]+q[1]*r[1]+q[2]*r[2])/(r[0]*r[0]+r[1]*r[1]+r[2]*r[2])));
+    }
+    function nearest(x, y) {
+      let best = -1, dist = 128;
+      for (let i = 0; i < POINTS; i++) {
+        if (pin[i]) continue;
+        const s = screen(i), d = Math.hypot(s.x - x, s.y - y);
+        if (d < dist) { dist = d; best = i; }
+      }
+      return best;
+    }
+    function satisfy(stiff) {
+      for (let c = 0; c < constraints.length; c += 4) {
+        const ai = constraints[c], bi = constraints[c+1], a = ai*3, b = bi*3, rest = constraints[c+2], st = constraints[c+3] * stiff;
+        const dx = pos[b]-pos[a], dy = pos[b+1]-pos[a+1], dz = pos[b+2]-pos[a+2], len = Math.hypot(dx,dy,dz) || 1, diff = (len-rest)/len*st;
+        const ox = dx*.5*diff, oy = dy*.5*diff, oz = dz*.5*diff;
+        if (!pin[ai]) { pos[a]+=ox; pos[a+1]+=oy; pos[a+2]+=oz; }
+        if (!pin[bi]) { pos[b]-=ox; pos[b+1]-=oy; pos[b+2]-=oz; }
+      }
+    }
+    function simulate(dt, time) {
+      dt = Math.min(dt, .024);
+      const wind = windOn ? Number(ui.wind.value)/100 : 0;
+      const turbulence = Number(ui.turbulence.value)/100;
+      const stiff = Number(ui.stiffness.value)/100;
+      for (let i = 0; i < POINTS; i++) {
+        const k = i * 3, x = i % COLS, y = Math.floor(i / COLS);
+        if (pin[i]) {
+          pos[k] = pinPos[k];
+          pos[k+1] = pinPos[k+1];
+          pos[k+2] = pinPos[k+2] + Math.cos(time*.0013) * .08 * wind;
+          prev[k]=pos[k]; prev[k+1]=pos[k+1]; prev[k+2]=pos[k+2];
+          continue;
+        }
+        if (i === grabbed) continue;
+        const vx = (pos[k]-prev[k]) * DAMP, vy = (pos[k+1]-prev[k+1]) * DAMP, vz = (pos[k+2]-prev[k+2]) * DAMP;
+        prev[k]=pos[k]; prev[k+1]=pos[k+1]; prev[k+2]=pos[k+2];
+        const wave = Math.sin(time*.0032 + x*.24 + y*.3), cross = Math.cos(time*.002 + x*.15 - y*.34);
+        const pulse = pulseEnergy * Math.max(0, 1 - Math.hypot(x-COLS*.56, y-ROWS*.52)/22);
+        pos[k] += vx + wind * .018 + cross * turbulence * .004;
+        pos[k+1] += vy - 1.8 * dt * dt + Math.sin(time*.0015 + x*.18) * wind * .002;
+        pos[k+2] += vz + (wave*.46 + cross*.18) * wind * (turbulence + .35) * dt + pulse * dt;
+      }
+      for (let i = 0; i < ITER; i++) satisfy(stiff);
+      if (grabbed >= 0) {
+        const k = grabbed * 3, w = pointerWorld(pointer.x, pointer.y, grabDepth);
+        prev[k]=pos[k]; prev[k+1]=pos[k+1]; prev[k+2]=pos[k+2];
+        pos[k] += (w[0]-pos[k])*.82; pos[k+1] += (w[1]-pos[k+1])*.82; pos[k+2] += (w[2]-pos[k+2])*.82;
+      }
+      pulseEnergy *= .9;
+    }
+    function normals() {
+      normal.fill(0);
+      for (let i = 0; i < indices.length; i += 3) {
+        const a=indices[i]*3,b=indices[i+1]*3,c=indices[i+2]*3;
+        const abx=pos[b]-pos[a], aby=pos[b+1]-pos[a+1], abz=pos[b+2]-pos[a+2], acx=pos[c]-pos[a], acy=pos[c+1]-pos[a+1], acz=pos[c+2]-pos[a+2];
+        const nx=aby*acz-abz*acy, ny=abz*acx-abx*acz, nz=abx*acy-aby*acx;
+        normal[a]+=nx; normal[a+1]+=ny; normal[a+2]+=nz; normal[b]+=nx; normal[b+1]+=ny; normal[b+2]+=nz; normal[c]+=nx; normal[c+1]+=ny; normal[c+2]+=nz;
+      }
+      for (let i = 0; i < POINTS; i++) { const k=i*3,l=Math.hypot(normal[k],normal[k+1],normal[k+2])||1; normal[k]/=l; normal[k+1]/=l; normal[k+2]/=l; }
+    }
+    function draw() {
+      const { proj, view } = matrices();
+      gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      normals();
+      gl.useProgram(prog);
+      gl.uniformMatrix4fv(loc.projection, false, new Float32Array(proj));
+      gl.uniformMatrix4fv(loc.view, false, new Float32Array(view));
+      gl.uniform3f(loc.light, -.55, .8, .56);
+      gl.uniform1f(loc.sheen, Number(ui.sheen.value)/100);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texture); gl.uniform1i(loc.texture, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.pos); gl.bufferData(gl.ARRAY_BUFFER, pos, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(loc.position); gl.vertexAttribPointer(loc.position, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal); gl.bufferData(gl.ARRAY_BUFFER, normal, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(loc.normal); gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, 0, 0);
+      gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+      if (grabbed >= 0) { const s = screen(grabbed); ring.style.display = "block"; ring.style.transform = `translate(${s.x}px, ${s.y}px)`; } else ring.style.display = "none";
+    }
+    function resize() {
+      const r = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+      viewWidth = r.width; viewHeight = r.height; canvas.width = Math.round(r.width*dpr); canvas.height = Math.round(r.height*dpr); gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    function local(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    canvas.addEventListener("pointerdown", e => { e.preventDefault(); pointer = local(e); grabbed = nearest(pointer.x, pointer.y); if (grabbed >= 0) { grabDepth = depthFor(grabbed, pointer.x, pointer.y); canvas.setPointerCapture(e.pointerId); } });
+    canvas.addEventListener("pointermove", e => { pointer = local(e); });
+    canvas.addEventListener("pointerup", () => { grabbed = -1; });
+    canvas.addEventListener("pointercancel", () => { grabbed = -1; });
+    function sync(input, output) { const f = () => output.textContent = input.value; input.addEventListener("input", f); f(); }
+    sync(ui.wind, ui.windValue); sync(ui.turbulence, ui.turbulenceValue); sync(ui.stiffness, ui.stiffnessValue); sync(ui.sheen, ui.sheenValue);
+    function sendPulse(){ pulseEnergy = 20; }
+    ui.pulse.addEventListener("click", sendPulse); ui.gust.addEventListener("click", sendPulse);
+    ui.reset.addEventListener("click", buildMesh);
+    ui.fan.addEventListener("click", () => { windOn = !windOn; ui.fan.style.animationPlayState = windOn ? "running" : "paused"; });
+    document.querySelectorAll("nav a[data-info]").forEach(link => {
+      link.addEventListener("click", event => {
+        event.preventDefault();
+        document.querySelectorAll("nav a").forEach(item => item.classList.toggle("active", item === link));
+        const copy = infoCopy[link.dataset.info];
+        info.title.textContent = copy[0];
+        info.text.textContent = copy[1];
+        info.box.classList.add("open");
+      });
+    });
+    info.close.addEventListener("click", () => info.box.classList.remove("open"));
+    function frame(t) {
+      const dt = (t-last)/1000 || .016; last = t; simulate(dt, t); draw();
+      frames++; fpsAcc += dt; if (fpsAcc > .5) { ui.fps.textContent = `${Math.round(frames/fpsAcc)} FPS`; frames = 0; fpsAcc = 0; }
+      requestAnimationFrame(frame);
+    }
+    addEventListener("resize", resize); resize(); requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

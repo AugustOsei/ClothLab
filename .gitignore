@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.vercel/
+*.log
+
+# Earlier local prototypes; the deployable demo is self-contained in index.html.
+main.js
+styles.css
